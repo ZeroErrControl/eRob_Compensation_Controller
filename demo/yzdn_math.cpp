@@ -6,7 +6,7 @@
 
 #include "yzdn_math.h"
 
-// 浮点绝对值
+// float absolute value
 f32 YZDN_MATH_absf(f32 input)
 {
     if(input <0.0f)
@@ -31,7 +31,7 @@ f32 MATH_absf(f32 input)
     }
 }
 
-// 自然对数计算
+// natural logarithm calculation
 fp64 YZDN_MATH_ln(fp64 a)
 {
    int N = 15u;
@@ -51,10 +51,10 @@ fp64 YZDN_MATH_ln(fp64 a)
 }
 
 /**
- * 两点线性插值
- * 从(x_0,y_0)插值到(x_1,y_1)， x_0必须小于x_1
- * x 插值的点
- * return 插值结果
+ * two-point linear interpolation
+ * interpolate from (x_0,y_0) to (x_1,y_1), x_0 must be less than x_1
+ * x interpolation point
+ * return interpolation result
  * **/
 f32 YZDN_MATH_linear_interpolation(f32 x_0, f32 x_1, f32 y_0, f32 y_1, f32 x)
 {
@@ -80,13 +80,13 @@ f32 YZDN_MATH_linear_interpolation(f32 x_0, f32 x_1, f32 y_0, f32 y_1, f32 x)
 }
 
 /**
- * @brief 分段线性插值函数。给定散点，根据输入的x输出散点的线性插值结果。
+ * @brief piecewise linear interpolation function. Given scattered points, output the linear interpolation result of the scattered points according to the input x.
  * 
- * @param[in] pxtable 散点的x列表，x必须是从小到大排列
- * @param[in] pytable 散点的y列表
- * @param[in] len 散点的个数
- * @param[in] x 代插值的x坐标
- * @return ** f32 插值的结果
+ * @param[in] pxtable scattered points x list, x must be arranged in ascending order
+ * @param[in] pytable scattered points y list
+ * @param[in] len number of scattered points
+ * @param[in] x x coordinate to be interpolated
+ * @return ** f32 interpolation result
  */
 f32 MATH_linear_table_interpolation(f32 *pxtable, f32 *pytable, int16_t len, f32 x)
 {
@@ -96,7 +96,7 @@ f32 MATH_linear_table_interpolation(f32 *pxtable, f32 *pytable, int16_t len, f32
     f32 y_1 = pytable[len-1];
     f32 y = 0;
   
-    // 线性内插
+    // linear interpolation
     for(int i=0; i<(len-2); i++)
     {
         if((x >= pxtable[i]) && (x <= pxtable[i+1]))
@@ -110,7 +110,7 @@ f32 MATH_linear_table_interpolation(f32 *pxtable, f32 *pytable, int16_t len, f32
     f32 k = (y_1 - y_0) / (x_1 - x_0);
     y = k * (x - x_0) + y_0;
 	
-	// 越界处理
+	// boundary handling
     if(x < pxtable[0])
     {
         y = pytable[0];
@@ -131,7 +131,7 @@ f32 YZDN_MATH_linear_table_interpolation(f32 *pxtable, f32 *pytable, int16_t len
     f32 y_1 = pytable[len-1];
     f32 y = 0;
   
-    // 线性内插
+    // linear interpolation
     for(int i=0; i<(len-2); i++)
     {
         if((x >= pxtable[i]) && (x <= pxtable[i+1]))
@@ -145,7 +145,7 @@ f32 YZDN_MATH_linear_table_interpolation(f32 *pxtable, f32 *pytable, int16_t len
     f32 k = (y_1 - y_0) / (x_1 - x_0);
     y = k * (x - x_0) + y_0;
 	
-	// 越界处理
+	// boundary handling
     if(x < pxtable[0])
     {
         y = pytable[0];
@@ -159,11 +159,11 @@ f32 YZDN_MATH_linear_table_interpolation(f32 *pxtable, f32 *pytable, int16_t len
 
 
 /**
- * @brief 限幅函数。将输入的x限制在[-max, +max]之间
+ * @brief limit function. Limit the input x between [-max, +max]
  * 
- * @param[in] max 限制值
- * @param[in] x 输入
- * @return ** f32 输出
+ * @param[in] max limit value
+ * @param[in] x input
+ * @return ** f32 output
  */
 f32 YZDN_MATH_limit(f32 max, f32 x)
 {
@@ -197,10 +197,10 @@ uint32_t YZDN_MATH_limit_between_u32(uint32_t x, uint32_t min, uint32_t max)
 }
 
 /**
- * @brief 符号函数
+ * @brief sign function
  * 
  * @param[in] x 
- * @return ** f32 
+ * @return ** f32
  */
 f32 YZDN_MATH_sign(f32 x)
 {
@@ -217,12 +217,11 @@ f32 YZDN_MATH_sign(f32 x)
 }
 
 /**
- * @brief 死区映射
- * 连续没有突变的映射
- * 当 |x| < dead_zone时, y=0
- *
+ * @brief dead zone mapping
+ * continuous mapping without sudden changes
+ * when |x| < dead_zone, y=0
  * @param input
- * @param dead_zone 死区大小 必须大于0
+ * @param dead_zone dead zone size, must be greater than 0
  * @return ** f32
  */
 f32 YZDN_MATH_dead_zone(f32 input, f32 dead_zone)
@@ -244,11 +243,11 @@ f32 YZDN_MATH_dead_zone(f32 input, f32 dead_zone)
 }
 
 /**
- * @brief 带有死区的线性映射函数
- * C0连续
- * @param x 输入
- * @param d 死区 d > 0
- * @param k 死区外的斜率
+ * @brief linear mapping function with dead zone
+ * C0 continuous
+ * @param x input
+ * @param d dead zone, d > 0
+ * @param k slope outside the dead zone
  * @return ** f32
  */
 f32 YZDN_MATH_dead_zone_linear(f32 x, f32 d, f32 k)
@@ -272,8 +271,8 @@ f32 YZDN_MATH_dead_zone_linear(f32 x, f32 d, f32 k)
 
 
 /**
- * @brief 两点插值函数
- * 插值 (x_0,y_0)到(x_1,y_1)，输出x处的y值
+ * @brief two-point interpolation function
+ * interpolate (x_0,y_0) to (x_1,y_1), output y value at x
  * @param y_0
  * @param y_1
  * @param x_0
@@ -308,8 +307,8 @@ f32 YZDN_MATH_2point_interpolation(f32 y_0, f32 y_1, f32 x_0, f32 x_1, f32 x)
 }
 
 /**
- * @brief 抛物线插值
- * 顶点坐标 (x_0,y_0), 抛物线上右侧另外一点坐标 (x_1,y_1)
+ * @brief parabolic interpolation
+ * vertex coordinates (x_0,y_0), another point on the right side of the parabola (x_1,y_1)
  * @param x_0
  * @param y_0
  * @param x_1
@@ -328,7 +327,7 @@ f32 YZDN_MATH_parabola_interpolation(f32 x_0, f32 y_0, f32 x_1, f32 y_1, f32 x)
     }
 
     f32 y = k_1 * (x - x_0) * (x - x_0) + y_0;
-    if (x > x_1) // 不允许外插值
+    if (x > x_1) // not allowed extrapolation
     {
         y = y_1;
     }

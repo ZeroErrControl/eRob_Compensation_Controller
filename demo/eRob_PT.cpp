@@ -157,7 +157,7 @@ int erob_test(void)
 /* 
 模组控制的主要线程，包括发送控制力矩，接收位置速度电流反馈
 这里要求实时性，不能跑耗时长的逻辑
-500 Hz
+1000 Hz
  */
 OSAL_THREAD_FUNC_RT ecat_thread(void *ptr)
 {
