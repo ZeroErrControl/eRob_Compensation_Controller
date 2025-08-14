@@ -6,10 +6,10 @@
  */
 
 /**
- * @brief 一阶低通滤波-初始化滤波时间常数
+ * @brief first order low pass filter - initialize filter time constant
  * G(s)=\frac{1}{T*s+1}
  * @param self 
- * @param T 滤波时间常数，数字越大，截止频率越低
+ * @param T filter time constant, the larger the number, the lower the cutoff frequency
  * @return ** void 
  */
 void lpf_init(ST_LPF* self, f32 T)
@@ -17,7 +17,7 @@ void lpf_init(ST_LPF* self, f32 T)
     self->T = T;
 }
 
-// 带有初始值的初始化
+// initialize with initial value
 void lpf_init_2(ST_LPF *self, f32 T, f32 y0)
 {
     self->T = T;
@@ -27,11 +27,11 @@ void lpf_init_2(ST_LPF *self, f32 T, f32 y0)
 }
 
 /**
- * @brief 一阶低通滤波函数-主运算，根据输入信号，计算输出信号
+ * @brief first order low pass filter function - main operation, calculate the output signal according to the input signal
  * 
  * @param self 
- * @param input 输入信号
- * @param output 输出信号
+ * @param input input signal
+ * @param output output signal
  * @return ** void 
  */
 f32 lpf_step(ST_LPF* self, f32 input, f32 dt)

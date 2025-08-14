@@ -19,30 +19,30 @@
 #include "freq_scan.h"
 #include "slop.h"
 
-// #define MOTOR_EN_FRIC_IDEN // 启动摩檫力辨识
+// #define MOTOR_EN_FRIC_IDEN // start friction identification
 
-// 模组的参数
-#define MOTOR_CURRENT_BASE (5.4f) // 电机的电流基值=额定电流A
-#define MOTOR_ENCODER_SIM  (524288.0f) // 编码为线数
-#define MOTOR_ENCODER_SIM_DIV (1.0f/MOTOR_ENCODER_SIM) // 编码器线数的倒数
-#define MOTOR_K_RADPS2SIMPS   (MOTOR_ENCODER_SIM * 1.0F / YZDN_MATH_2PI) // 弧度每秒换算为脉冲每秒
+// module parameters
+#define MOTOR_CURRENT_BASE (5.4f) // motor current base = rated current A
+#define MOTOR_ENCODER_SIM  (524288.0f) // encoder lines
+#define MOTOR_ENCODER_SIM_DIV (1.0f/MOTOR_ENCODER_SIM) // encoder lines reciprocal
+#define MOTOR_K_RADPS2SIMPS   (MOTOR_ENCODER_SIM * 1.0F / YZDN_MATH_2PI) // rad/s to pulse/s
 
-#define MOTOR_UNLIMITED_ACCEL (1000.0F)  // 无限加速度参数 rpm/s
-#define MOTOR_LIMITED_ACCEL (10.0f)  // 受限的加速度参数 rpm/s
+#define MOTOR_UNLIMITED_ACCEL (1000.0F)  // unlimited acceleration parameter rpm/s
+#define MOTOR_LIMITED_ACCEL (10.0f)  // limited acceleration parameter rpm/s
 
 typedef enum
 {
-  MC_MODE_OFF = 0X00,    // 空闲
-  MC_MODE_COMP_FRIC_PT,      // 摩擦力补偿后的电流环模式
-  MC_MODE_COMP_GRAVITY_PT,      // 重力补偿后的电流环模式
-  MC_MODE_COMP_PT,      // 重力和摩擦力补偿后的电流环模式
-  MC_MODE_COMP_PV,      // 重力和摩擦力补偿后的速度环模式
-  MC_MODE_FRIC_IDEN,    // 摩檫力辨识
-  MC_MODE_COMP_PV_IDEN_SIN, // 重力和摩擦力补偿后的速度环辨识 正弦模式
-  MC_MODE_COMP_PV_IDEN_SQUARE, // 重力和摩擦力补偿后的速度环辨识 方波模式
-  MC_MODE_COMP_PV_IDEN_SIN_2, // 重力和摩擦力补偿后的速度环辨识 正弦模式 加速度限幅
-  MC_MODE_COMP_PV_IDEN_SQUARE_2, // 重力和摩擦力补偿后的速度环辨识 方波模式 加速度限幅
-  MC_MODE_NUM,          // 模式的数量
+  MC_MODE_OFF = 0X00,    // idle
+  MC_MODE_COMP_FRIC_PT,      // current loop mode after friction compensation
+  MC_MODE_COMP_GRAVITY_PT,      // current loop mode after gravity compensation
+  MC_MODE_COMP_PT,      // current loop mode after gravity and friction compensation
+  MC_MODE_COMP_PV,      // speed loop mode after gravity and friction compensation
+  MC_MODE_FRIC_IDEN,    // friction identification
+  MC_MODE_COMP_PV_IDEN_SIN, // speed loop identification after gravity and friction compensation sine mode
+  MC_MODE_COMP_PV_IDEN_SQUARE, // speed loop identification after gravity and friction compensation square mode
+  MC_MODE_COMP_PV_IDEN_SIN_2, // speed loop identification after gravity and friction compensation sine mode with acceleration limit
+  MC_MODE_COMP_PV_IDEN_SQUARE_2, // speed loop identification after gravity and friction compensation square mode with acceleration limit
+  MC_MODE_NUM,          // number of modes
 }MOTOR_CTRL_mode_e;
 
 char mc_mode_name[MC_MODE_NUM][45] = {
@@ -51,60 +51,60 @@ char mc_mode_name[MC_MODE_NUM][45] = {
     "MC_MODE_FRIC_IDEN","MC_MODE_COMP_PV_IDEN_SIN","MC_MODE_COMP_PV_IDEN_SQUARE",
     "MC_MODE_COMP_PV_IDEN_SIN_2","MC_MODE_COMP_PV_IDEN_SQUARE_2"};
 
-// 电机控制结构体
+    // motor control structure
 typedef struct
 {
-    float dt;         // 固定控制周期 s
-    float dt_2;       // 实际测量的控制周期 s
-    float time;       // 时间 s
+    float dt;         // fixed control period s
+    float dt_2;       // actual measured control period s
+    float time;       // time s
     struct timespec time_now;
     struct timespec time_pre;
-    MOTOR_CTRL_mode_e mode; // 控制模式
-    uint16_t  tick;   // 计数
-    // 速度控制参数
-    float speed_ref;  // 速度目标值 rpm
-    float speed_max;  // 最大速度限制 rpm
-    // 电机控制参数
-    float current_ref; // 电流目标值 mA
-    float current_offset; // 电流前馈 mA
-    float current_max; // 最大电流限制 mA
-    // 加速度限制
-    float accel_limit; // 加速限制 rad/s^2 R
-    float accel_limit_rpm; // 加速度限制 rpm/s R/W
+    MOTOR_CTRL_mode_e mode; // control mode
+    uint16_t  tick;   // count
+    // speed control parameters
+    float speed_ref;  // speed target value rpm
+    float speed_max;  // maximum speed limit rpm
+    // motor control parameters
+    float current_ref; // current target value mA
+    float current_offset; // current feedforward mA
+    float current_max; // maximum current limit mA
+    // acceleration limit
+    float accel_limit; // acceleration limit rad/s^2 R
+    float accel_limit_rpm; // acceleration limit rpm/s R/W
     // 反馈参数
-    float current_fbk; // 电流反馈 mA
-    float speed_fbk;   // 速度反馈 rad/s
-    float speed_fbk_rpm; // 速度反馈 rpm
-    float angle_fbk;   // 角度反馈 rad
-    float angle_fbk_deg; // 角度反馈 deg
-    // 摩擦和重力补偿
-    uint8_t en_fric_comp; // 打开摩檫力补偿 0x01=开启
-    uint8_t en_gravity_comp; // 使能重力补偿
-    uint8_t en_fric_iden;     // 开启摩檫力补偿 0x01=开启
-    float current_fric; // 摩擦力补偿电流 mA
-    float current_gravity; // 重力补偿电流 mA
+    float current_fbk; // current feedback mA
+    float speed_fbk;   // speed feedback rad/s
+    float speed_fbk_rpm; // speed feedback rpm
+    float angle_fbk;   // angle feedback rad
+    float angle_fbk_deg; // angle feedback deg
+    // friction and gravity compensation
+    uint8_t en_fric_comp; // enable friction compensation 0x01=enable
+    uint8_t en_gravity_comp; // enable gravity compensation
+    uint8_t en_fric_iden;     // enable friction compensation 0x01=enable
+    float current_fric; // friction compensation current mA
+    float current_gravity; // gravity compensation current mA
     // 电机参数
-    float current_base;    // 电流基值 A
-    ST_LPF lpf_current; // 电流低通滤波
-    // 电机反馈参数
-    txpdo_t fbk_raw;  // 电机反馈参数原始值
-    rxpdo_t cmd_raw;  // 电机指令原始值
-    // 延时
+    float current_base;    // current base A
+    ST_LPF lpf_current; // current low pass filter
+    // motor feedback parameters
+    txpdo_t fbk_raw;  // motor feedback parameters raw value
+    rxpdo_t cmd_raw;  // motor command parameters raw value
+    // delay
     float delay;
-    // 速度环模型
-    TF_2RD_t tf_spd_d; // 离散化速度模型
-    TF_2RD_t tf_spd_c; // 连续速度模型
-    SLOP_t   slop_spd; // 斜坡模型
+    // speed loop model
+    TF_2RD_t tf_spd_d; // discrete speed model
+    TF_2RD_t tf_spd_c; // continuous speed model
+    SLOP_t   slop_spd; // slope model
 }MOTOR_CTRL_t, *MOTOR_CTRL_h;
 
 void MOTOR_CTRL_key(void);
 
 
 MOTOR_CTRL_t g_motor_ctrl;
-FILE *p_file_log = NULL; // 日志文件
-FILE *p_data =NULL; // 数据文件
+FILE *p_file_log = NULL; // log file
+FILE *p_data =NULL; // data file
 
-// 电机控制参数初始化
+// motor control parameters initialization
 void MOTOR_CTRL_init(void)
 {
     MOTOR_CTRL_t *h =&g_motor_ctrl;
@@ -117,23 +117,23 @@ void MOTOR_CTRL_init(void)
     FREQ_SCAN_init();
     SLOP_init(&h->slop_spd, 0.0001f);
 
-    // 控制模式
+    // control mode
     h->mode = MC_MODE_OFF;
 
-    // 电机控制模式配置
+    // motor control mode configuration
     h->cmd_raw.controlword = 0x000F;
     h->cmd_raw.torque_slope = 0x00;
     h->cmd_raw.max_torque = h->current_max / h->current_base;
     h->cmd_raw.padding = 0x00;
-    h->cmd_raw.speed_limit = MOTOR_ENCODER_SIM; // 最大转速
+    h->cmd_raw.speed_limit = MOTOR_ENCODER_SIM; // maximum speed
     h->cmd_raw.speed_limit_2 = MOTOR_ENCODER_SIM;
-    h->cmd_raw.accelerate_up = 2000000; // 加速度限制
+    h->cmd_raw.accelerate_up = 2000000; // acceleration limit
     h->cmd_raw.accelerate_down = 2000000;
 
-    // 速度环模型
+    // speed loop model
     TF_2RD_discrete_init(&h->tf_spd_d, 0.0121667f,0.0243333f,0.0121667f, 1.0f, -1.7175803f,0.7660727f);
 
-    // 日志文件
+    // log file
     p_file_log = fopen("log.txt", "w");
     if (p_file_log == NULL) 
     {
@@ -157,7 +157,7 @@ void MOTOR_CTRL_init(void)
 }
 
 
-// 电机控制函数 dt 控制周期s
+// motor control function dt control period s
 void MOTOR_CTRL_step(float dt)
 {
     MOTOR_CTRL_h h = &g_motor_ctrl;
@@ -168,10 +168,10 @@ void MOTOR_CTRL_step(float dt)
 
     switch(h->mode)
     {
-        // 空闲
+        // idle
         case MC_MODE_OFF:
         {
-            h->cmd_raw.mode_of_operation = 0x04; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x04; // control mode 0X03=PV, 0X04=PT
             h->speed_ref = 0.0f;
             h->current_ref = 0.0f;
             h->current_offset = 0.0f;
@@ -182,10 +182,10 @@ void MOTOR_CTRL_step(float dt)
         }
 
 
-        // 摩檫力辨识
-        case MC_MODE_FRIC_IDEN: // 摩檫力辨识
+        // friction identification
+        case MC_MODE_FRIC_IDEN: // friction identification
         {
-            h->cmd_raw.mode_of_operation = 0x03; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x03; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x01;
             h->en_fric_comp = 0x00;
             h->en_gravity_comp = 0x00;
@@ -194,15 +194,15 @@ void MOTOR_CTRL_step(float dt)
             h->accel_limit_rpm = MOTOR_UNLIMITED_ACCEL;
             break;
         }
-        // 带有补偿的速度模型辨识
+        // speed loop identification with compensation
         case MC_MODE_COMP_PV_IDEN_SQUARE:
         {
-            h->cmd_raw.mode_of_operation = 0x03; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x03; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x01;
             h->en_gravity_comp = 0x01;
             h->accel_limit_rpm = MOTOR_UNLIMITED_ACCEL;
-            // 方波速度目标值 用于辨识
+            // square wave speed target value for identification
             h->delay += h->dt;
             float period = 6.0f;
             if(h->delay > period)
@@ -219,29 +219,29 @@ void MOTOR_CTRL_step(float dt)
             }
             break;
         }
-        // 带有补偿的速度模型辨识
+            // speed loop identification with compensation
         case MC_MODE_COMP_PV_IDEN_SIN:
         {
-            h->cmd_raw.mode_of_operation = 0x03; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x03; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x01;
             h->en_gravity_comp = 0x01;
             h->accel_limit_rpm = MOTOR_UNLIMITED_ACCEL;
-            // 正弦扫频辨识
+            // sine frequency scan identification
             FREQ_SCAN_step(dt);
             h->speed_ref = FREQ_SCAN_get_input();
             break;
         }
 
-        // 带有补偿的速度模型辨识
+        // speed loop identification with compensation
         case MC_MODE_COMP_PV_IDEN_SQUARE_2:
         {
-            h->cmd_raw.mode_of_operation = 0x03; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x03; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x01;
             h->en_gravity_comp = 0x01;
-            h->accel_limit_rpm = MOTOR_LIMITED_ACCEL; // 加速限制 rpm/s
-            // 方波速度目标值 用于辨识
+            h->accel_limit_rpm = MOTOR_LIMITED_ACCEL; // acceleration limit rpm/s
+            // square wave speed target value for identification
             h->delay += h->dt;
             float period = 6.0f;
             if(h->delay > period)
@@ -258,24 +258,24 @@ void MOTOR_CTRL_step(float dt)
             }
             break;
         }
-        // 带有补偿的速度模型辨识
+        // speed loop identification with compensation
         case MC_MODE_COMP_PV_IDEN_SIN_2:
         {
-            h->cmd_raw.mode_of_operation = 0x03; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x03; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x01;
             h->en_gravity_comp = 0x01;
-            h->accel_limit_rpm = MOTOR_LIMITED_ACCEL; // 加速限制 rpm/s
-            // 正弦扫频辨识
+            h->accel_limit_rpm = MOTOR_LIMITED_ACCEL; // acceleration limit rpm/s
+            // sine frequency scan identification
             FREQ_SCAN_step(dt);
             h->speed_ref = FREQ_SCAN_get_input();
             break;
         }
 
-        // 带有补偿的力矩模式
+        // torque loop with compensation
         case MC_MODE_COMP_PT: 
         {
-            h->cmd_raw.mode_of_operation = 0x04; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x04; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x01;
             h->en_gravity_comp = 0x01;
@@ -283,10 +283,10 @@ void MOTOR_CTRL_step(float dt)
             break;
         }
 
-        // 带有补偿的力矩模式
+        // torque loop with friction compensation
         case MC_MODE_COMP_FRIC_PT: 
         {
-            h->cmd_raw.mode_of_operation = 0x04; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x04; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x01;
             h->en_gravity_comp = 0x00;
@@ -294,20 +294,20 @@ void MOTOR_CTRL_step(float dt)
             break;
         }
 
-        // 带有补偿的力矩模式
+            // torque loop with gravity compensation
         case MC_MODE_COMP_GRAVITY_PT: 
         {
-            h->cmd_raw.mode_of_operation = 0x04; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x04; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x00;
             h->en_gravity_comp = 0x01;
             h->accel_limit_rpm = MOTOR_UNLIMITED_ACCEL;
             break;
         }
-        // 带有补偿的速度模式
+        // speed loop with compensation
         case MC_MODE_COMP_PV:
         {
-            h->cmd_raw.mode_of_operation = 0x03; // 控制模式 0X03=PV, 0X04=PT
+            h->cmd_raw.mode_of_operation = 0x03; // control mode 0X03=PV, 0X04=PT
             h->en_fric_iden = 0x00;
             h->en_fric_comp = 0x01;
             h->en_gravity_comp = 0x01;
@@ -318,18 +318,18 @@ void MOTOR_CTRL_step(float dt)
             break;
     }
 
-    // 计算程序运行周期
+    // calculate program running period
     clock_gettime(CLOCK_MONOTONIC, &h->time_now);
     h->dt_2 = h->time_now.tv_sec - h->time_pre.tv_sec + (h->time_now.tv_nsec - h->time_pre.tv_nsec) * 1e-9;
     h->time_pre = h->time_now;
-    // 速度环模型
+    // speed loop model
     float ref_slop = SLOP_step(&h->slop_spd, h->dt_2, h->accel_limit_rpm, h->speed_ref);
     float tf_out_d = TF_2RD_discrete_step(&h->tf_spd_d, h->dt_2, ref_slop);
 
-    // 键盘控制
+    // keyboard control
     MOTOR_CTRL_key();
 
-    // 反馈数据
+    // feedback data
     h->time           += h->dt;
     h->angle_fbk      = h_tx->actual_position * MOTOR_ENCODER_SIM_DIV * YZDN_MATH_2PI;
     h->angle_fbk_deg  = h->angle_fbk * YZDN_MATH_K_RAD2DEG;
@@ -338,7 +338,7 @@ void MOTOR_CTRL_step(float dt)
     h->current_fbk    = h_tx->actual_torque * h->current_base;
     lpf_step(&h->lpf_current, h->current_fbk, h->dt);
 
-    // 设置电机控制参数
+    // set motor control parameters
     h->accel_limit = h->accel_limit_rpm * YZDN_MATH_K_RPM2RADPS;
     float accel_raw = h->accel_limit_rpm * YZDN_MATH_K_RPM2RADPS * MOTOR_K_RADPS2SIMPS;
     if(accel_raw > 2000000.0f)
@@ -347,17 +347,17 @@ void MOTOR_CTRL_step(float dt)
     }
     h_rx->accelerate_up =  accel_raw;
     h_rx->accelerate_down =  accel_raw;
-    h_rx->target_torque = h->current_ref / h->current_base; // 电机的电流指令 标幺值 千分比
+    h_rx->target_torque = h->current_ref / h->current_base; // motor current command normalized value
     h_rx->torque_offset = h->current_offset / h->current_base;
-    h_rx->speed_target  = h->speed_ref * YZDN_MATH_K_RPM2RADPS * MOTOR_K_RADPS2SIMPS; // 速度目标值 puls/s
+    h_rx->speed_target  = h->speed_ref * YZDN_MATH_K_RPM2RADPS * MOTOR_K_RADPS2SIMPS; // speed target value puls/s
 
-    // 摩檫力补偿
+    // friction compensation
     h->current_fric = Friction_Identify_compensate_step(h->speed_fbk_rpm);
     h->current_gravity = Gravity_compensate_step(h->angle_fbk_deg);
     h->current_offset = h->en_fric_comp * h->current_fric + h->en_gravity_comp * h->current_gravity;
    
 
-    // 打印电机控制和运行参数
+    // print motor control and running parameters
     if (h->tick % 500 == 0) // 1 Hz
     {
         ECAT_LOG("mode:%d, spd_ref:%.1f, i_ref:%.1f, i_offset:%.1f, angle:%.1f, spd:%.1f, i:%.1f, i_fric:%.1f, i_gravity:%.1f\n", 
@@ -366,7 +366,7 @@ void MOTOR_CTRL_step(float dt)
             h->angle_fbk_deg, h->speed_fbk_rpm, h->current_fbk, 
             h->current_fric, h->current_gravity);
     }
-    // 记录日志 500Hz
+    // record log 500Hz
     if(0x00 == Friction_Identify_get_finish())
     {
         fprintf(p_data, "%.3f, %.3f, %.3f, %.3f, %.1f, %.1f\n", 
@@ -374,7 +374,7 @@ void MOTOR_CTRL_step(float dt)
     }
 }
 
-// 退出处理
+// exit processing
 void MOTOR_CTRL_exit(void)
 {
     ECAT_LOG("exit, save file");
@@ -383,7 +383,7 @@ void MOTOR_CTRL_exit(void)
     fclose(p_file_log);
 }
 
-// 用于非阻塞读取键盘输入的函数
+// function to read keyboard input non-blocking
 int kbhit(void) 
 {
     struct termios oldt, newt;
@@ -410,7 +410,7 @@ int kbhit(void)
     return 0;
 }
 
-// 键盘控制函数
+    // keyboard control function
 void MOTOR_CTRL_key(void)
 {
     if (kbhit()) 

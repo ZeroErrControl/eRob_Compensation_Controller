@@ -9,36 +9,36 @@
 
 typedef struct 
 {
-    float dt; // 采样周期 s
+    float dt; // sampling period s
     uint8_t en_input;
 
-    // 连续形式
-    float k; // 传递函数增益
-    float a; // 传递函数分母系数1
-    float b; // 传递函数分母系数2
+    // continuous form
+    float k; // transfer function gain
+    float a; // transfer function denominator coefficient 1
+    float b; // transfer function denominator coefficient 2
     float dy[2]; // dy = [ddy, dy]
     float y[2]; // y=[dy, y] 
 
-    // 离散化形式
-    float num[3]; // G(z)分子系数
-    float den[3]; // G(z)分母系数
-    float r; // 输入信号 r(k)
-    float u; // 输出信号 u(k)
+    // discrete form
+    float num[3]; // G(z) numerator coefficients
+    float den[3]; // G(z) denominator coefficients
+    float r; // input signal r(k)
+    float u; // output signal u(k)
     float r_pre; // r(k-1)
     float r_pre2; // r(k-2)
     float u_pre;  // u(k-1)
     float u_pre2; // u(k-2)
 }TF_2RD_t, *TF_2RD_h;
 
-// 离散化形式
+// discrete form
 void TF_2RD_discrete_init(TF_2RD_h h, float num_0, float num_1, float num_2, float den_0, float den_1, float den_2);
 float TF_2RD_discrete_step(TF_2RD_h h, float dt, float r);
 
-// 连续形式
+// continuous form
 void TF_2RD_continue_init(TF_2RD_h h, float k, float a, float b);
 float TF_2RD_continue_step(TF_2RD_h h, float dt, float r);
 
-// 公用
+// common
 float TF_2RD_get_out(TF_2RD_h h);
 
 #endif

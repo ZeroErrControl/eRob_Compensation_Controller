@@ -6,14 +6,14 @@
 #include "integrator.h"
 
 
-// u_0 积分的初始值
+    // u_0 initial value of integration
 void INTEGRATOR_init(INTEGRATOR_h h, float gain, float u_0)
 {
     h->u = u_0;
     h->gain = gain;
 }
 
-// 运行周期dt 秒， 输入 r
+// running period dt s, input r
 float INTEGRATOR_step(INTEGRATOR_h h, float dt, float r)
 {
     h->dt = dt;

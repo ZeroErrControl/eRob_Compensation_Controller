@@ -18,7 +18,7 @@ float SLOP_step(SLOP_h h, float dt, float accel, float ref)
     h->ref = ref;
     h->err = h->ref - h->out;
     float du = h->dt * h->accel;
-    if(YZDN_MATH_absf(h->err) < du) // 步长大于误差就不用积分了
+    if(YZDN_MATH_absf(h->err) < du) // step size is greater than error, no integration
     {
         h->out =  h->ref;
     }

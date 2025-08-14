@@ -9,7 +9,7 @@
 
 // #define FRIC_MODE_LOAD
 
-// // 摩擦力辨识数据
+// // friction identification data
 // #define FRIC_TABLE_LEN (37)
 
 // float spd_x[FRIC_TABLE_LEN] = {0.1f,0.72f,1.45f,2.18f,2.90f,3.63f,4.35f,5.08f,5.80f,6.53f,
@@ -57,40 +57,40 @@ float current_y[FRIC_TABLE_LEN] = {128.4f,160.4f,174.7f,186.1f,192.4f,202.9f,207
 
 
 typedef struct{
-    float dt; // 运行周期
-    uint8_t state; // 状态
-    uint8_t start; // 开始测量 0x01
-    uint8_t finish; // 测量完成 0x01
-    float ref; // 转速目标值 rpm
-    float ref_dir; // 方向
-    uint8_t ref_idx; // 当前采集第几个点的数据
-    float ref_min; // 最小目标值
-    float ref_max; // 最大目标值
-    uint8_t data_num; // 采集的数据点个数
-    float spd; // 模组转速 rpm
-    float current; // 电流 mA
-    float angle_det; // 双编码器插值 deg
-    // 采集平均值和幅值
+    float dt; // running period
+    uint8_t state; // state
+    uint8_t start; // start measurement 0x01
+    uint8_t finish; // measurement finished 0x01
+    float ref; // speed target value rpm
+    float ref_dir; // direction
+    uint8_t ref_idx; // current data point
+    float ref_min; // minimum target value
+    float ref_max; // maximum target value
+    uint8_t data_num; // number of data points collected
+    float spd; // module speed rpm
+    float current; // current mA
+        float angle_det; // double encoder interpolation deg
+    // collect average and amplitude
     uint32_t cnt;
-    float spd_avr; // 模组转速 rpm
-    float current_avr; // 电流 mA
-    float angle_det_avr; // 双编码器插值 deg
-    float delay; // 延时 s
-    float stable_time; // 稳定时间 s
-    float sample_time; // 采样时间 s
-    float stop_time; // 从最大转速停止的时间 s
-    float current_max; // 最大电流 mA
-    float current_min; // 最小电流 mA
-    float current_offset; // 电流的偏置 mA
-    float current_am; // 电流幅值 mA
-    // 摩檫力补偿
-    float fric_gain; // 摩檫力补偿增益 
+    float spd_avr; // module speed rpm
+    float current_avr; // current mA
+    float angle_det_avr; // double encoder interpolation deg
+    float delay; // delay s
+    float stable_time; // stable time s
+    float sample_time; // sampling time s
+    float stop_time; // time to stop from maximum speed s
+    float current_max; // maximum current mA
+    float current_min; // minimum current mA
+    float current_offset; // current offset mA
+    float current_am; // current amplitude mA
+    // friction compensation
+    float fric_gain; // friction compensation gain 
     float fric_current; // 摩檫力补偿电流 mA
-    // 重力补偿
-    float gravity_gain; // 重力补偿增益
-    float gravity_am; // 重力补偿电流幅值 mA
-    float gravity_current; // 重力补偿电流 mA
-    float comp_current; // 摩檫力和重力的总的补偿电流 mA
+    // gravity compensation
+    float gravity_gain; // gravity compensation gain
+    float gravity_am; // gravity compensation current amplitude mA
+    float gravity_current; // gravity compensation current mA
+    float comp_current; // total compensation current of friction and gravity mA
 }ST_FRIC_IDEN_t, *ST_FRIC_IDEN_h;
 
 
@@ -112,10 +112,10 @@ void Friction_Identify_init(void)
 }
 
 /**
- * 辨识摩擦力模型-采集数据
- * spd_fbk 速度反馈 rpm
- * current_fbk 电流反馈 mA
- * angle_det 双编码器反馈 deg
+ * identify friction model - collect data
+ * spd_fbk speed feedback rpm
+ * current_fbk current feedback mA
+ * angle_det double encoder feedback deg
  * **/
 void Friction_Identify_step(float dt, float spd_fbk, float current_fbk, float angle_det)
 {
@@ -126,7 +126,7 @@ void Friction_Identify_step(float dt, float spd_fbk, float current_fbk, float an
     h->angle_det = angle_det;
     switch(h->state)
     {
-        case 0x00: // 空闲
+        case 0x00: // idle
         {
             if(h->start)
             {
@@ -137,14 +137,14 @@ void Friction_Identify_step(float dt, float spd_fbk, float current_fbk, float an
             break;
         }
 
-        case 10: // 设置目标转速 等待转速稳定
+        case 10: // set speed target and wait for speed stable
         {
             h->ref = h->ref_dir * (h->ref_min + h->ref_idx * (h->ref_max - h->ref_min) / (float)h->data_num);
 
             h->current_max = -1000.0f;
             h->current_min =  1000.0f;
 
-            // 计算转几圈的时间
+            // calculate the time to turn several circles
             float ref_abs = YZDN_MATH_absf(h->ref);
             #ifdef FRIC_MODE_LOAD
             if(ref_abs > 0.1f)
@@ -184,13 +184,13 @@ void Friction_Identify_step(float dt, float spd_fbk, float current_fbk, float an
             break;
         }
 
-        case 20: // 采集数据
+        case 20: // collect data
         {
             
             h->spd_avr += h->spd;
             h->angle_det_avr += h->angle_det;
             h->current_avr +=h->current;
-            // 查找电流的最大最小值
+            // find the maximum and minimum current
             if(h->current > h->current_max)
             {
                 h->current_max = h->current;
@@ -224,7 +224,7 @@ void Friction_Identify_step(float dt, float spd_fbk, float current_fbk, float an
             break;
         }
 
-        case 30:// 减速到0
+        case 30:// decelerate to 0
         {
             h->delay += h->dt;
             if(h->delay > h->stop_time)
@@ -239,7 +239,7 @@ void Friction_Identify_step(float dt, float spd_fbk, float current_fbk, float an
     }
 }
 
-// 摩擦力补偿 spd_fbk 速度反馈 rpm
+// friction compensation spd_fbk speed feedback rpm
 float Friction_Identify_compensate_step(float spd_fbk)
 {
     ST_FRIC_IDEN_h h = &g_fric_ident;
@@ -260,7 +260,7 @@ float Friction_Identify_compensate_step(float spd_fbk)
     return h->fric_current;
 }
 
-// 重力补偿 angle deg
+// gravity compensation angle deg
 float Gravity_compensate_step(float angle)
 {
     ST_FRIC_IDEN_h h = &g_fric_ident;
@@ -270,7 +270,7 @@ float Gravity_compensate_step(float angle)
 }
 
 
-// 读取速度目标值
+// read speed target value
 float Friction_Identify_get_spd_ref(void)
 {
     ST_FRIC_IDEN_h h = &g_fric_ident;
@@ -289,28 +289,28 @@ float Friction_Identify_get_current_min(void)
     return h->current_min;
 }
 
-// 读取辨识完成标志位
+// read identification finished flag
 uint8_t Friction_Identify_get_finish(void)
 {
     ST_FRIC_IDEN_h h = &g_fric_ident;
     return h->finish;
 }
 
-// 读取摩檫力增益
+// read friction gain
 float Friction_Identify_get_gain(void)
 {
     ST_FRIC_IDEN_h h = &g_fric_ident;
     return h->fric_gain;
 }
 
-// 读取摩檫力增益
+// read friction gain
 void Friction_Identify_set_gain(float gain)
 {
     ST_FRIC_IDEN_h h = &g_fric_ident;
     h->fric_gain = gain;
 }
 
-// 读取重力增益
+    // read gravity gain
 float Friction_Identify_get_gravity_gain(void)
 {
     ST_FRIC_IDEN_h h = &g_fric_ident;

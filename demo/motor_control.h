@@ -17,6 +17,6 @@ void MOTOR_CTRL_set_fbk_raw(txpdo_t fbk);
 
 rxpdo_t MOTOR_CTRL_get_cmd(void);
 
-extern FILE *p_file_log; // 日志文件
+extern FILE *p_file_log; // log file
 
 #endif

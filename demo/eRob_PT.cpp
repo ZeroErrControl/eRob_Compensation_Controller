@@ -16,7 +16,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/mman.h>  // 添加此头文件用于mlockall
+#include <sys/mman.h>  //  add this header file for mlockall
 
 #include <sys/time.h>
 #include <pthread.h>
@@ -31,7 +31,7 @@
 #include <sched.h>
 #include <stdlib.h>
 #include <termios.h>
-#include <fcntl.h>  // 包含 F_GETFL 和 F_SETFL 的定义
+#include <fcntl.h>  //  include F_GETFL and F_SETFL definitions
 #include "log.h"
 #include "motor_control.h"
 
@@ -93,10 +93,10 @@ uint16_t data_R;
 int16_t SLAVE_ID = 1;
 
 
-uint8_t exit_app = 0x00; // 退出程序
+uint8_t exit_app = 0x00; // exit program
 
 
-// 主函数
+// main function
 int main(int argc, char **argv) 
 {
     MOTOR_CTRL_init();
@@ -104,22 +104,22 @@ int main(int argc, char **argv)
     inOP = FALSE;
     start_ecatthread_thread = FALSE;
     dorun = 0;
-    ctime_thread = 1000;  // 设置周期时间为 us
-    // 设置最高实时优先级
+    ctime_thread = 1000;  // set cycle time to us
+    // set highest real-time priority
     struct sched_param param;
     param.sched_priority = 99;
     if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
         perror("sched_setscheduler failed");
     }
-    // 锁定内存
+    // lock memory
     if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
         perror("mlockall failed");
     }
-    // 设置CPU亲和性到两个核心
+    // set CPU affinity to two cores
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(2, &cpuset);  // 使用CPU核心2
-    CPU_SET(3, &cpuset);  // 使用CPU核心3
+    CPU_SET(2, &cpuset);  // use CPU core 2
+    CPU_SET(3, &cpuset);  // use CPU core 3
 
     if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset) == -1) 
     {
@@ -155,8 +155,8 @@ int erob_test(void)
 }
 
 /* 
-模组控制的主要线程，包括发送控制力矩，接收位置速度电流反馈
-这里要求实时性，不能跑耗时长的逻辑
+main thread for module control, including sending control torque, receiving position, speed, and current feedback
+here requires real-time performance, no long-running logic is allowed
 1000 Hz
  */
 OSAL_THREAD_FUNC_RT ecat_thread(void *ptr)
@@ -194,7 +194,7 @@ OSAL_THREAD_FUNC_RT ecat_thread(void *ptr)
 
         if (start_ecatthread_thread) 
         {   // Check if the EtherCAT thread should run
-            // 接收过程数据
+            // receive process data
             wkc = ec_receive_processdata(EC_TIMEOUTRET);
 
             if (wkc >= expectedWKC) 
@@ -202,7 +202,7 @@ OSAL_THREAD_FUNC_RT ecat_thread(void *ptr)
                 for (int slave = 1; slave <= ec_slavecount; slave++)
                 {
                     memcpy(&txpdo, ec_slave[slave].inputs, sizeof(txpdo_t));
-                    // 检查从站状态
+                    // check slave state
                     if (ec_slave[slave].state != EC_STATE_OPERATIONAL)
                     {
                         ECAT_LOG("Warning: Slave %d not in OPERATIONAL state (State: 0x%02x)\n",  slave, ec_slave[slave].state);
@@ -211,8 +211,8 @@ OSAL_THREAD_FUNC_RT ecat_thread(void *ptr)
                     }
                 }
 
-                // 状态机控制
-                // 设置电机控制参数 必须放在这里才能转
+                // state machine control
+                // set motor control parameters must be placed here to run
                 *h_rx = MOTOR_CTRL_get_cmd();
                 if (step < 8000) 
                 {
@@ -243,23 +243,23 @@ OSAL_THREAD_FUNC_RT ecat_thread(void *ptr)
                     h_rx->controlword = 0x000F;
                 }
 
-                // 发送数据到从站
+                // send data to slave
                 for (int slave = 1; slave <= ec_slavecount; slave++)
                 {
                     memcpy(ec_slave[slave].outputs, &rxpdo, sizeof(rxpdo_t));
                 }
 
-                // 读取电机反馈参数
+                // read motor feedback parameters
                 MOTOR_CTRL_set_fbk_raw(*h_tx);
             } 
 
-            // 时钟同步
+            // clock synchronization
             if (ec_slave[0].hasdc) 
             {
                 ec_sync(ec_DCtime, cycletime, &toff);
             }
 
-            // 发送过程数据
+                // send process data
             ec_send_processdata();
         }
     }
@@ -458,15 +458,15 @@ int erob_step_2(void)
 }
 
 /**
- * 3.- Map RXPDO 配置从站接收过程数据对象RXPDO映射（主站发给从站的数据）（从关节模组角度看是接收）
- * SDO 数据服务对象
- * 0x1600~0x1603 是对象字典目录中的1~4号接收对象(Receive PDO 1 mapping)的编号
- * 一个PDO支持最多255个数据，用索引区分
- * 索引0需要传入数据的个数0-255，
- * 索引1-255需要传入32位的值，其中
- * bit[0:7]是数据的长度, 0x08=8位数据; 0x10=16位数据，0x20=32位数据
- * bit[8:15]是数据的子索引，没有就写0
- * bit[15:31]是数据的地址
+ * 3.- Map RXPDO configure slave receive process data object RXPDO mapping (the data sent from the master to the slave) (from the joint module perspective, it is receiving)
+ * SDO data service object
+ * 0x1600~0x1603 is the number of the 1~4th receive object (Receive PDO 1 mapping) in the object dictionary
+ * one PDO supports up to 255 data, use index to distinguish
+ * index 0 needs to pass in the number of data 0-255,
+ * index 1-255 needs to pass in 32-bit values, where
+ * bit[0:7] is the length of the data, 0x08=8 bits; 0x10=16 bits, 0x20=32 bits
+ * bit[8:15] is the sub-index of the data, if there is no sub-index, write 0
+ * bit[15:31] is the address of the data
  * **/
 int erob_map_rxpdo(void)
 {
@@ -485,52 +485,52 @@ int erob_map_rxpdo(void)
         retval += ec_SDOwrite(i, 0x1600, 0x00, FALSE, sizeof(zero_map), &zero_map, EC_TIMEOUTSAFE);
         
         // 2. Configure new PDO mapping
-        // Add Control Word 控制字
+        // Add Control Word control word
         map_object = 0x60400010;  // 0x6040:0 Control Word, 16 bits
         retval += ec_SDOwrite(i, 0x1600, 0x01, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
         
-        // Add Target Torque 目标扭矩
+        // Add Target Torque target torque
         map_object = 0x60710010;  // 0x6071:0 Target Torque, 16 bits 
-        // 映射对象的值包括两个部分，0x6071是目标扭矩的地址，0x00是子索引，0x10表示扭矩是16位数据类型
-        // 通过map_object的地址传入映射对象的值，在erob_map_rxpdo函数运行期间，这个地址是稳定的，调用ec_SDOwrite函数的时候，map_object的内存还不会释放，因此ec_SDOwrite函数可以根据这个地址拿到正确的数值。
-        // 只有当erob_map_rxpdo函数函数运行结束之后，map_object变量才会被释放。
-        // ec_SDOwrite函数中，通过内存拷贝方式，从地址得到map_object的值，memcpy(&SDOp->ldata[0], hp, psize);
+        // the value of the mapped object includes two parts, 0x6071 is the address of the target torque, 0x00 is the sub-index, 0x10 represents the torque is 16-bit data type
+        // through the address of map_object, the value of the mapped object is passed in, during the execution of the erob_map_rxpdo function, this address is stable, when the ec_SDOwrite function is called, the memory of map_object is not released, so the ec_SDOwrite function can get the correct value according to this address.
+        // only when the erob_map_rxpdo function is finished, the map_object variable will be released.
+        // in the ec_SDOwrite function, the value of map_object is obtained through memory copy, memcpy(&SDOp->ldata[0], hp, psize);
         retval += ec_SDOwrite(i, 0x1600, 0x02, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
         
-        // Add Torque Slope 扭矩的斜率，设置为0禁用斜率设置，即时响应
+        // Add Torque Slope torque slope, set to 0 to disable slope setting, immediate response
         map_object = 0x60870020;  // 0x6087:0 Torque Slope, 32 bits
         retval += ec_SDOwrite(i, 0x1600, 0x03, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
         
-        // Add Max Torque 最大扭矩
+        // Add Max Torque maximum torque
         map_object = 0x60720010;  // 0x6072:0 Max Torque, 16 bits
         retval += ec_SDOwrite(i, 0x1600, 0x04, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
         
-        // Add Modes of Operation 控制模式
+        // Add Modes of Operation control mode
         map_object = 0x60600008;  // 0x6060:0 Modes of Operation, 8 bits
         retval += ec_SDOwrite(i, 0x1600, 0x05, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
 
-        map_object = 0x60B20010;  // 0x60B2 电流前馈值，int16_t
+        map_object = 0x60B20010;  // 0x60B2:0 电流前馈值，int16_t current feedforward value
         retval += ec_SDOwrite(i, 0x1600, 0x06, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
 
-        map_object = 0x60FF0020;  // 0x60FF 速度目标值pul/s，int32_t
+        map_object = 0x60FF0020;  // 0x60FF:0 速度目标值pul/s，int32_t speed target value
         retval += ec_SDOwrite(i, 0x1600, 0x07, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
 
-        map_object = 0x607F0020;  // 0x60FF 最大允许速度pul/s，uint32_t
+        map_object = 0x607F0020;  // 0x607F:0 最大允许速度pul/s，uint32_t maximum allowed speed
         retval += ec_SDOwrite(i, 0x1600, 0x08, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
 
-        map_object = 0x60800020;  // 0x6080 任何方向上允许的最大速度pul/s，uint32_t
+        map_object = 0x60800020;  // 0x6080:0 任何方向上允许的最大速度pul/s，uint32_t maximum allowed speed in any direction
         retval += ec_SDOwrite(i, 0x1600, 0x09, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
 
-        map_object = 0x60830020;  // 0x6083 轮廓加速度 pul/s，uint32_t
+        map_object = 0x60830020;  // 0x6083 轮廓加速度 pul/s，uint32_t contour acceleration
         retval += ec_SDOwrite(i, 0x1600, 0x0a, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
 
         map_object = 0x60840020;  // 0x6084 轮廓减速度 pul/s，uint32_t
         retval += ec_SDOwrite(i, 0x1600, 0x0b, FALSE, sizeof(map_object), &map_object, EC_TIMEOUTSAFE);
         
-        // Add 8-bit padding 填充的位
+        // Add 8-bit padding 填充的位  
         /*
             因 ESC 芯片特性，如果 0x1600（RxPDO0）映射了 0x6060 或 0x1A00（TxPDO0）
-            映射了 0x6061，则还需添加映射一个 8bit 长度的对象（此对象必须位于最后一个
+            映射了 0x6061，则还需添加映射一个 8bit 长度的对象（此对象必须位于最后一 个
             子索引），使 PDO 总长度为偶数字节（16bit）对齐，否则 PDO 配置将无法生效，
             ESC 会报错 SM 配置无效。（参考手册第30页）
         */

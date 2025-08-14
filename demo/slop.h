@@ -11,12 +11,12 @@
 
 typedef struct
 {
-    float dt; // 控制周期 s
-    float accel; // 加速度 1/s
-    float ref; // 目标值
-    float out; // 输出值
+    float dt; // control period s
+    float accel; // acceleration 1/s
+    float ref; // target value
+    float out; // output value
     float err;
-    float err_th; // 误差阈值
+    float err_th; // error threshold
 }SLOP_t, *SLOP_h;
 
 void SLOP_init(SLOP_h h, float err_th);
