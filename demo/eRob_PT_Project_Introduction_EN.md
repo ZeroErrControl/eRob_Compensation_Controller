@@ -2,6 +2,21 @@
 
 > **Language Switch**: [中文版](eRob_PT_功能说明文档.md) | English Version
 
+## Disclaimer
+
+⚠️ **Important Safety Reminder**
+
+This program is for learning and research purposes only. All experiments must implement proper safety protection measures. **Please do not use this demo program directly in actual production scenarios**.
+
+### Safety Requirements
+- Ensure motors and joints are securely fastened to prevent unexpected movement or tipping
+- Avoid dangerous operations in torque mode and parameter identification mode
+- Check all connections and protection measures before operation
+- Maintain safe distance to avoid injury from high-speed rotation
+
+### Disclaimer Terms
+Users are responsible for all risks associated with using this program. Developers are not liable for any losses, injuries, or accidents caused by using this program. Please fully understand the associated risks and take necessary safety measures before use.
+
 ## Project Overview
 
 **eRob_PT** is a high-performance EtherCAT master control system developed based on the SOEM (Simple Open EtherCAT Master) library, specifically designed for precise servo motor control and system identification. This project integrates advanced motor control algorithms, friction compensation, gravity compensation, and system identification capabilities, providing a complete solution for robotic joint control, precision positioning systems, and other applications.
@@ -40,20 +55,56 @@ sudo ./demo/eRob_PT
   - W: Increase speed
   - S: Decrease speed
 
-## Disclaimer
+## Detailed Control Instructions
 
-⚠️ **Important Safety Reminder**
+### Mode Switching
+- **P**: Switch control modes
 
-This program is for learning and research purposes only. All experiments must implement proper safety protection measures. **Please do not use this demo program directly in actual production scenarios**.
+### Speed Control
+- **W**: Reference value + 10, Speed reference +1
+- **S**: Reference value - 10, Speed reference -1
 
-### Safety Requirements
-- Ensure motors and joints are securely fastened to prevent unexpected movement or tipping
-- Avoid dangerous operations in torque mode and parameter identification mode
-- Check all connections and protection measures before operation
-- Maintain safe distance to avoid injury from high-speed rotation
+### Parameter Adjustment
+- **E**: Offset + 10
+- **D**: Offset - 10
+- **J**: Friction gain + 0.01
+- **K**: Friction gain - 0.01
+- **N**: Gravity gain + 0.01
+- **M**: Gravity gain - 0.01
 
-### Disclaimer Terms
-Users are responsible for all risks associated with using this program. Developers are not liable for any losses, injuries, or accidents caused by using this program. Please fully understand the associated risks and take necessary safety measures before use.
+### System Control
+- **B**: Stop motor
+- **Q**: Exit program
+- **F**: Enable friction compensation
+- **C**: Enable gravity compensation
+
+## Control Mode Details
+
+Press P key after startup to switch control modes:
+
+- **MC_MODE_OFF = 0X00**: Idle mode
+- **MC_MODE_COMP_FRIC_PT**: Current loop mode with friction compensation
+- **MC_MODE_COMP_GRAVITY_PT**: Current loop mode with gravity compensation
+- **MC_MODE_COMP_PT**: Current loop mode with friction and gravity compensation
+- **MC_MODE_COMP_PV**: Speed loop mode with friction and gravity compensation
+- **MC_MODE_FRIC_IDEN**: Friction identification mode
+- **MC_MODE_COMP_PV_IDEN_SIN**: Speed loop identification with compensation (sinusoidal mode)
+- **MC_MODE_COMP_PV_IDEN_SQUARE**: Speed loop identification with compensation (square wave mode)
+- **MC_MODE_COMP_PV_IDEN_SIN_2**: Speed loop identification with compensation (sinusoidal mode, acceleration limited)
+- **MC_MODE_COMP_PV_IDEN_SQUARE_2**: Speed loop identification with compensation (square wave mode, acceleration limited)
+
+## Raspberry Pi Platform Special Configuration
+
+### CPU Isolation Configuration (Raspberry Pi 3B only)
+To ensure EtherCAT communication real-time performance, isolate CPU cores 2 and 3:
+
+1. Edit `/boot/cmdline.txt` file, add `isolcpus=2,3` at the end
+2. Restart system
+3. Use `htop` to check CPU 2,3 usage should be 0
+4. Use these two CPUs to run program: `sudo taskset -c 2,3 ./eRob_PT`
+
+### Network Card Configuration
+Network card name must be eth0, otherwise modify `ec_init("eth0")` in code to corresponding name.
 
 > **Related Resources**: For more detailed operation demonstrations and tutorial videos, please refer to: [Douyin@翼之道男](https://www.douyin.com/root/search/%E7%BF%BC%E4%B9%8B%E9%81%93%E7%94%B7?aid=162e4cd5-cc26-4b15-91bf-8564670a63ce&modal_id=7537173963715300634&type=general)
 
