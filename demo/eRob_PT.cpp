@@ -267,7 +267,6 @@ OSAL_THREAD_FUNC_RT ecat_thread(void *ptr)
 }
 
 
-
 /* 
  * PI calculation to synchronize Linux time with the Distributed Clock (DC) time.
  * This function calculates the offset time needed to align the Linux time with the DC time.
@@ -398,28 +397,33 @@ void set_thread_affinity(pthread_t thread, int cpu_core) {
     }
 }
 
-// 1. Call ec_config_init() to move from INIT to PRE-OP state.
 int erob_step_1(void)
 {
     ECAT_LOG("__________STEP 1___________________\n");
-    // Initialize EtherCAT master on the specified network interface
-    if (ec_init("enp5s0") <= 0) {
-        ECAT_LOG("Error: Could not initialize EtherCAT master!\n");
-        ECAT_LOG("No socket connection on Ethernet port. Execute as root.\n");
+
+    const char *env  = getenv("EC_IFACE");
+    const char *used = env;
+
+    /* Initialize EtherCAT master on the chosen interface */
+    if (ec_init(used) <= 0) {
+        ECAT_LOG("Error: Could not initialize EtherCAT on %s!\n", used);
+        ECAT_LOG("Tip: run as root; NIC UP; unmanaged; or set EC_IFACE.\n");
         ECAT_LOG("___________________________________________\n");
-        return -1; // Return error if initialization fails
+        return -1;
     }
-    ECAT_LOG("EtherCAT master initialized successfully.\n");
+
+    ECAT_LOG("EtherCAT master initialized successfully on: %s\n", used);
     ECAT_LOG("___________________________________________\n");
 
     // Search for EtherCAT slaves on the network
     if (ec_config_init(FALSE) <= 0) {
         ECAT_LOG("Error: Cannot find EtherCAT slaves!\n");
         ECAT_LOG("___________________________________________\n");
-        ec_close(); // Close the EtherCAT connection
-        return -1; // Return error if no slaves are found
+        ec_close();
+        return -1;
     }
-    ECAT_LOG("%d slaves found and configured.\n", ec_slavecount); // Print the number of slaves found
+
+    ECAT_LOG("%d slaves found and configured.\n", ec_slavecount);
     ECAT_LOG("___________________________________________\n");
     return 0;
 }
